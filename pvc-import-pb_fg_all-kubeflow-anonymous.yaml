@@ -1,0 +1,19 @@
+
+kind: PersistentVolumeClaim
+
+apiVersion: v1
+
+metadata:
+
+ name: pb-fg-all
+
+ namespace: kubeflow-anonymous
+
+spec:
+
+ accessModes:
+
+ - ReadOnlyMany
+
+ storageClassName: ontap-ai-flexgroups-retain
+

@@ -1,0 +1,118 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: replicate-data-cloud-sync-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2, pipelines.kubeflow.org/pipeline_compilation_time: '2021-06-02T02:13:43.128111',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "Template for triggering
+      a sync operation for an existing NetApp Cloud Sync relationship", "inputs":
+      [{"name": "cloud_sync_relationship_id", "type": "String"}, {"default": "cloud-sync-refresh-token",
+      "name": "cloud_sync_refresh_token_k8s_secret", "optional": true, "type": "String"}],
+      "name": "Replicate Data - Cloud Sync"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2}
+spec:
+  entrypoint: replicate-data-cloud-sync
+  templates:
+  - name: netappcloudsyncupdate
+    container:
+      args: [--relationshipId, '{{inputs.parameters.cloud_sync_relationship_id}}']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - "def netappCloudSyncUpdate(relationshipId, printResponse = True, keepCheckingUntilComplete\
+        \ = True) :\n    import sys, subprocess, json, os, base64\n\n    # Install\
+        \ pre-requisites\n    subprocess.run([sys.executable, '-m', 'pip', 'install',\
+        \ 'netapp-ontap', 'pandas', 'tabulate', 'requests', 'boto3', 'pyyaml'])\n\
+        \    subprocess.run(['git', 'clone', 'https://github.com/NetApp/netapp-data-science-toolkit'])\n\
+        \    subprocess.run(['cp', '-a', '/netapp-data-science-toolkit/Traditional/ntap_dsutil.py',\
+        \ '/tmp/'])\n    from ntap_dsutil import syncCloudSyncRelationship\n\n   \
+        \ # Retrieve Cloud Sync refresh token from mounted k8s secret\n    with open('/mnt/secret/refreshToken',\
+        \ 'r') as refreshTokenSecret :\n        refreshTokenString = refreshTokenSecret.read().strip()\n\
+        \n    # Create NetApp Data Science Toolkit config file\n    refreshTokenBytes\
+        \ = refreshTokenString.encode(\"ascii\") \n    refreshTokenBase64Bytes = base64.b64encode(refreshTokenBytes)\n\
+        \    configJson = {\"cloudCentralRefreshToken\": refreshTokenBase64Bytes.decode(\"\
+        ascii\")}\n    configDirPath = os.path.expanduser(\"~/.ntap_dsutil\")\n  \
+        \  os.mkdir(configDirPath)\n    configFilePath = os.path.join(configDirPath,\
+        \ \"config.json\")\n    with open(configFilePath, 'w') as configFile :\n \
+        \       json.dump(configJson, configFile)\n\n    # Trigger sync operation\n\
+        \    syncCloudSyncRelationship(relationshipID=relationshipId, waitUntilComplete=keepCheckingUntilComplete,\
+        \ printOutput=printResponse)\n\ndef _deserialize_bool(s) -> bool:\n    from\
+        \ distutils.util import strtobool\n    return strtobool(s) == 1\n\nimport\
+        \ argparse\n_parser = argparse.ArgumentParser(prog='NetappCloudSyncUpdate',\
+        \ description='')\n_parser.add_argument(\"--relationshipId\", dest=\"relationshipId\"\
+        , type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --printResponse\", dest=\"printResponse\", type=_deserialize_bool, required=False,\
+        \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--keepCheckingUntilComplete\"\
+        , dest=\"keepCheckingUntilComplete\", type=_deserialize_bool, required=False,\
+        \ default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n\
+        _outputs = netappCloudSyncUpdate(**_parsed_args)\n"
+      image: python:3
+      volumeMounts:
+      - {mountPath: /mnt/secret, name: cloud-sync-refresh-token}
+    inputs:
+      parameters:
+      - {name: cloud_sync_refresh_token_k8s_secret}
+      - {name: cloud_sync_relationship_id}
+    metadata:
+      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--relationshipId", {"inputValue": "relationshipId"}, {"if": {"cond":
+          {"isPresent": "printResponse"}, "then": ["--printResponse", {"inputValue":
+          "printResponse"}]}}, {"if": {"cond": {"isPresent": "keepCheckingUntilComplete"},
+          "then": ["--keepCheckingUntilComplete", {"inputValue": "keepCheckingUntilComplete"}]}}],
+          "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
+          \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def netappCloudSyncUpdate(relationshipId,
+          printResponse = True, keepCheckingUntilComplete = True) :\n    import sys,
+          subprocess, json, os, base64\n\n    # Install pre-requisites\n    subprocess.run([sys.executable,
+          ''-m'', ''pip'', ''install'', ''netapp-ontap'', ''pandas'', ''tabulate'',
+          ''requests'', ''boto3'', ''pyyaml''])\n    subprocess.run([''git'', ''clone'',
+          ''https://github.com/NetApp/netapp-data-science-toolkit''])\n    subprocess.run([''cp'',
+          ''-a'', ''/netapp-data-science-toolkit/Traditional/ntap_dsutil.py'', ''/tmp/''])\n    from
+          ntap_dsutil import syncCloudSyncRelationship\n\n    # Retrieve Cloud Sync
+          refresh token from mounted k8s secret\n    with open(''/mnt/secret/refreshToken'',
+          ''r'') as refreshTokenSecret :\n        refreshTokenString = refreshTokenSecret.read().strip()\n\n    #
+          Create NetApp Data Science Toolkit config file\n    refreshTokenBytes =
+          refreshTokenString.encode(\"ascii\") \n    refreshTokenBase64Bytes = base64.b64encode(refreshTokenBytes)\n    configJson
+          = {\"cloudCentralRefreshToken\": refreshTokenBase64Bytes.decode(\"ascii\")}\n    configDirPath
+          = os.path.expanduser(\"~/.ntap_dsutil\")\n    os.mkdir(configDirPath)\n    configFilePath
+          = os.path.join(configDirPath, \"config.json\")\n    with open(configFilePath,
+          ''w'') as configFile :\n        json.dump(configJson, configFile)\n\n    #
+          Trigger sync operation\n    syncCloudSyncRelationship(relationshipID=relationshipId,
+          waitUntilComplete=keepCheckingUntilComplete, printOutput=printResponse)\n\ndef
+          _deserialize_bool(s) -> bool:\n    from distutils.util import strtobool\n    return
+          strtobool(s) == 1\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''NetappCloudSyncUpdate'',
+          description='''')\n_parser.add_argument(\"--relationshipId\", dest=\"relationshipId\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--printResponse\",
+          dest=\"printResponse\", type=_deserialize_bool, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--keepCheckingUntilComplete\",
+          dest=\"keepCheckingUntilComplete\", type=_deserialize_bool, required=False,
+          default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = netappCloudSyncUpdate(**_parsed_args)\n"], "image": "python:3"}}, "inputs":
+          [{"name": "relationshipId", "type": "String"}, {"default": "True", "name":
+          "printResponse", "optional": true, "type": "Boolean"}, {"default": "True",
+          "name": "keepCheckingUntilComplete", "optional": true, "type": "Boolean"}],
+          "name": "NetappCloudSyncUpdate"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"relationshipId": "{{inputs.parameters.cloud_sync_relationship_id}}"}'}
+    volumes:
+    - name: cloud-sync-refresh-token
+      secret: {secretName: '{{inputs.parameters.cloud_sync_refresh_token_k8s_secret}}'}
+  - name: replicate-data-cloud-sync
+    inputs:
+      parameters:
+      - {name: cloud_sync_refresh_token_k8s_secret}
+      - {name: cloud_sync_relationship_id}
+    dag:
+      tasks:
+      - name: netappcloudsyncupdate
+        template: netappcloudsyncupdate
+        arguments:
+          parameters:
+          - {name: cloud_sync_refresh_token_k8s_secret, value: '{{inputs.parameters.cloud_sync_refresh_token_k8s_secret}}'}
+          - {name: cloud_sync_relationship_id, value: '{{inputs.parameters.cloud_sync_relationship_id}}'}
+  arguments:
+    parameters:
+    - {name: cloud_sync_relationship_id}
+    - {name: cloud_sync_refresh_token_k8s_secret, value: cloud-sync-refresh-token}
+  serviceAccountName: pipeline-runner

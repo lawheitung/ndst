@@ -1,0 +1,23 @@
+
+17 NetApp AI Control Plane © 2020 NetApp, Inc. All Rights Reserved.
+
+{
+
+ "version": 1,
+
+ "storageDriverName": "ontap-nas-flexgroup",
+
+ "backendName": "ontap-ai-flexgroups-iface2",
+
+ "managementLIF": "10.61.218.100",
+
+ "dataLIF": "192.168.12.12",
+
+ "svm": "ontapai_nfs",
+
+ "username": "admin",
+
+ "password": "ontapai"
+
+}
+

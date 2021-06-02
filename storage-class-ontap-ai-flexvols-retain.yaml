@@ -1,0 +1,17 @@
+
+apiVersion: storage.k8s.io/v1
+
+kind: StorageClass
+
+metadata:
+
+ name: ontap-ai-flexvols-retain
+
+provisioner: netapp.io/trident
+
+parameters:
+
+ backendType: "ontap-nas"
+
+reclaimPolicy: Retain
+

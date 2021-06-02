@@ -1,0 +1,25 @@
+
+kind: PersistentVolumeClaim
+
+apiVersion: v1
+
+metadata:
+
+ name: kfp-model-vol
+
+ namespace: kubeflow
+
+spec:
+
+ resources:
+  
+  requests:
+
+   storage: 20Gi
+
+ accessModes:
+
+ - ReadWriteMany
+
+ storageClassName: storage-class-nas
+

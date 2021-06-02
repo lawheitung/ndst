@@ -1,0 +1,157 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: replicate-data-snapmirror-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2, pipelines.kubeflow.org/pipeline_compilation_time: '2021-06-02T02:13:50.554696',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "Template for triggering
+      a a sync operation for an existing SnapMirror relationshop", "inputs": [{"name":
+      "snapmirror_relationship_uuid", "type": "String"}, {"default": "10.61.188.118",
+      "name": "destination_ontap_cluster_or_svm_mgmt_hostname", "optional": true,
+      "type": "String"}, {"default": "ontap-admin-account", "name": "destination_ontap_cluster_or_svm_admin_acct_k8s_secret",
+      "optional": true, "type": "String"}, {"default": "svm0", "name": "destination_svm",
+      "optional": true, "type": "String"}, {"default": "yes", "name": "ontap_api_verify_ssl_cert__yes_or_no",
+      "optional": true, "type": "String"}], "name": "Replicate Data - SnapMirror"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2}
+spec:
+  entrypoint: replicate-data-snapmirror
+  templates:
+  - name: netappsnapmirrorupdate
+    container:
+      args: [--destinationOntapClusterOrSvmMgmtHostname, '{{inputs.parameters.destination_ontap_cluster_or_svm_mgmt_hostname}}',
+        --destinationSvm, '{{inputs.parameters.destination_svm}}', --uuid, '{{inputs.parameters.snapmirror_relationship_uuid}}',
+        --verifySSLCert, '{{inputs.parameters.ontap_api_verify_ssl_cert__yes_or_no}}']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - "def netappSnapMirrorUpdate(\n    destinationOntapClusterOrSvmMgmtHostname,\
+        \ \n    destinationSvm,\n    uuid,\n    verifySSLCert = 'no',\n    waitUntilComplete\
+        \ = True,\n\n) :\n    import sys, subprocess, json, os, base64\n\n    # Install\
+        \ pre-requisites\n    subprocess.run([sys.executable, '-m', 'pip', 'install',\
+        \ 'netapp-ontap', 'pandas', 'tabulate', 'requests', 'boto3', 'pyyaml'])\n\
+        \    subprocess.run(['git', 'clone', 'https://github.com/NetApp/netapp-data-science-toolkit'])\n\
+        \    subprocess.run(['cp', '-a', '/netapp-data-science-toolkit/Traditional/ntap_dsutil.py',\
+        \ '/tmp/'])\n    from ntap_dsutil import syncSnapMirrorRelationship\n\n  \
+        \  # Retrieve ONTAP admin account details from mounted K8s secrets\n    with\
+        \ open('/mnt/secret/username', 'r') as usernameSecret :\n        ontapAdminUsername\
+        \ = usernameSecret.read().strip()\n    with open('/mnt/secret/password', 'r')\
+        \ as passwordSecret :\n        ontapAdminPasswordString = passwordSecret.read().strip()\n\
+        \n    # Create NetApp Data Science Toolkit config file\n    if verifySSLCert\
+        \ == \"no\" : \n        verifySSLCertBool = False\n    else : \n        verifySSLCertBool\
+        \ = True\n\n    ontapAdminPasswordBytes = ontapAdminPasswordString.encode(\"\
+        ascii\") \n    ontapAdminPasswordBase64Bytes = base64.b64encode(ontapAdminPasswordBytes)\n\
+        \n    configJson = {\n        \"connectionType\": \"ONTAP\", \n        \"\
+        hostname\": destinationOntapClusterOrSvmMgmtHostname, \n        \"svm\": destinationSvm,\
+        \ \n        \"username\": ontapAdminUsername, \n        \"password\": ontapAdminPasswordBase64Bytes.decode(\"\
+        ascii\"),\n        \"verifySSLCert\": verifySSLCertBool\n    }\n\n    configDirPath\
+        \ = os.path.expanduser(\"~/.ntap_dsutil\")\n    os.mkdir(configDirPath)\n\
+        \    configFilePath = os.path.join(configDirPath, \"config.json\")\n    with\
+        \ open(configFilePath, 'w') as configFile :\n        json.dump(configJson,\
+        \ configFile)\n\n    # Trigger sync operation\n    syncSnapMirrorRelationship(uuid=uuid,\
+        \ waitUntilComplete=waitUntilComplete, printOutput=True)\n\ndef _deserialize_bool(s)\
+        \ -> bool:\n    from distutils.util import strtobool\n    return strtobool(s)\
+        \ == 1\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='NetappSnapMirrorUpdate',\
+        \ description='')\n_parser.add_argument(\"--destinationOntapClusterOrSvmMgmtHostname\"\
+        , dest=\"destinationOntapClusterOrSvmMgmtHostname\", type=str, required=True,\
+        \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--destinationSvm\", dest=\"\
+        destinationSvm\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --uuid\", dest=\"uuid\", type=str, required=True, default=argparse.SUPPRESS)\n\
+        _parser.add_argument(\"--verifySSLCert\", dest=\"verifySSLCert\", type=str,\
+        \ required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--waitUntilComplete\"\
+        , dest=\"waitUntilComplete\", type=_deserialize_bool, required=False, default=argparse.SUPPRESS)\n\
+        _parsed_args = vars(_parser.parse_args())\n\n_outputs = netappSnapMirrorUpdate(**_parsed_args)\n"
+      image: python:3
+      volumeMounts:
+      - {mountPath: /mnt/secret, name: ontap-cluster-admin}
+    inputs:
+      parameters:
+      - {name: destination_ontap_cluster_or_svm_admin_acct_k8s_secret}
+      - {name: destination_ontap_cluster_or_svm_mgmt_hostname}
+      - {name: destination_svm}
+      - {name: ontap_api_verify_ssl_cert__yes_or_no}
+      - {name: snapmirror_relationship_uuid}
+    metadata:
+      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--destinationOntapClusterOrSvmMgmtHostname", {"inputValue": "destinationOntapClusterOrSvmMgmtHostname"},
+          "--destinationSvm", {"inputValue": "destinationSvm"}, "--uuid", {"inputValue":
+          "uuid"}, {"if": {"cond": {"isPresent": "verifySSLCert"}, "then": ["--verifySSLCert",
+          {"inputValue": "verifySSLCert"}]}}, {"if": {"cond": {"isPresent": "waitUntilComplete"},
+          "then": ["--waitUntilComplete", {"inputValue": "waitUntilComplete"}]}}],
+          "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
+          \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def netappSnapMirrorUpdate(\n    destinationOntapClusterOrSvmMgmtHostname,
+          \n    destinationSvm,\n    uuid,\n    verifySSLCert = ''no'',\n    waitUntilComplete
+          = True,\n\n) :\n    import sys, subprocess, json, os, base64\n\n    # Install
+          pre-requisites\n    subprocess.run([sys.executable, ''-m'', ''pip'', ''install'',
+          ''netapp-ontap'', ''pandas'', ''tabulate'', ''requests'', ''boto3'', ''pyyaml''])\n    subprocess.run([''git'',
+          ''clone'', ''https://github.com/NetApp/netapp-data-science-toolkit''])\n    subprocess.run([''cp'',
+          ''-a'', ''/netapp-data-science-toolkit/Traditional/ntap_dsutil.py'', ''/tmp/''])\n    from
+          ntap_dsutil import syncSnapMirrorRelationship\n\n    # Retrieve ONTAP admin
+          account details from mounted K8s secrets\n    with open(''/mnt/secret/username'',
+          ''r'') as usernameSecret :\n        ontapAdminUsername = usernameSecret.read().strip()\n    with
+          open(''/mnt/secret/password'', ''r'') as passwordSecret :\n        ontapAdminPasswordString
+          = passwordSecret.read().strip()\n\n    # Create NetApp Data Science Toolkit
+          config file\n    if verifySSLCert == \"no\" : \n        verifySSLCertBool
+          = False\n    else : \n        verifySSLCertBool = True\n\n    ontapAdminPasswordBytes
+          = ontapAdminPasswordString.encode(\"ascii\") \n    ontapAdminPasswordBase64Bytes
+          = base64.b64encode(ontapAdminPasswordBytes)\n\n    configJson = {\n        \"connectionType\":
+          \"ONTAP\", \n        \"hostname\": destinationOntapClusterOrSvmMgmtHostname,
+          \n        \"svm\": destinationSvm, \n        \"username\": ontapAdminUsername,
+          \n        \"password\": ontapAdminPasswordBase64Bytes.decode(\"ascii\"),\n        \"verifySSLCert\":
+          verifySSLCertBool\n    }\n\n    configDirPath = os.path.expanduser(\"~/.ntap_dsutil\")\n    os.mkdir(configDirPath)\n    configFilePath
+          = os.path.join(configDirPath, \"config.json\")\n    with open(configFilePath,
+          ''w'') as configFile :\n        json.dump(configJson, configFile)\n\n    #
+          Trigger sync operation\n    syncSnapMirrorRelationship(uuid=uuid, waitUntilComplete=waitUntilComplete,
+          printOutput=True)\n\ndef _deserialize_bool(s) -> bool:\n    from distutils.util
+          import strtobool\n    return strtobool(s) == 1\n\nimport argparse\n_parser
+          = argparse.ArgumentParser(prog=''NetappSnapMirrorUpdate'', description='''')\n_parser.add_argument(\"--destinationOntapClusterOrSvmMgmtHostname\",
+          dest=\"destinationOntapClusterOrSvmMgmtHostname\", type=str, required=True,
+          default=argparse.SUPPRESS)\n_parser.add_argument(\"--destinationSvm\", dest=\"destinationSvm\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--uuid\",
+          dest=\"uuid\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--verifySSLCert\",
+          dest=\"verifySSLCert\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--waitUntilComplete\",
+          dest=\"waitUntilComplete\", type=_deserialize_bool, required=False, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = netappSnapMirrorUpdate(**_parsed_args)\n"],
+          "image": "python:3"}}, "inputs": [{"name": "destinationOntapClusterOrSvmMgmtHostname",
+          "type": "String"}, {"name": "destinationSvm", "type": "String"}, {"name":
+          "uuid", "type": "String"}, {"default": "no", "name": "verifySSLCert", "optional":
+          true, "type": "String"}, {"default": "True", "name": "waitUntilComplete",
+          "optional": true, "type": "Boolean"}], "name": "NetappSnapMirrorUpdate"}',
+        pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"destinationOntapClusterOrSvmMgmtHostname":
+          "{{inputs.parameters.destination_ontap_cluster_or_svm_mgmt_hostname}}",
+          "destinationSvm": "{{inputs.parameters.destination_svm}}", "uuid": "{{inputs.parameters.snapmirror_relationship_uuid}}",
+          "verifySSLCert": "{{inputs.parameters.ontap_api_verify_ssl_cert__yes_or_no}}"}'}
+    volumes:
+    - name: ontap-cluster-admin
+      secret: {secretName: '{{inputs.parameters.destination_ontap_cluster_or_svm_admin_acct_k8s_secret}}'}
+  - name: replicate-data-snapmirror
+    inputs:
+      parameters:
+      - {name: destination_ontap_cluster_or_svm_admin_acct_k8s_secret}
+      - {name: destination_ontap_cluster_or_svm_mgmt_hostname}
+      - {name: destination_svm}
+      - {name: ontap_api_verify_ssl_cert__yes_or_no}
+      - {name: snapmirror_relationship_uuid}
+    dag:
+      tasks:
+      - name: netappsnapmirrorupdate
+        template: netappsnapmirrorupdate
+        arguments:
+          parameters:
+          - {name: destination_ontap_cluster_or_svm_admin_acct_k8s_secret, value: '{{inputs.parameters.destination_ontap_cluster_or_svm_admin_acct_k8s_secret}}'}
+          - {name: destination_ontap_cluster_or_svm_mgmt_hostname, value: '{{inputs.parameters.destination_ontap_cluster_or_svm_mgmt_hostname}}'}
+          - {name: destination_svm, value: '{{inputs.parameters.destination_svm}}'}
+          - {name: ontap_api_verify_ssl_cert__yes_or_no, value: '{{inputs.parameters.ontap_api_verify_ssl_cert__yes_or_no}}'}
+          - {name: snapmirror_relationship_uuid, value: '{{inputs.parameters.snapmirror_relationship_uuid}}'}
+  arguments:
+    parameters:
+    - {name: snapmirror_relationship_uuid}
+    - {name: destination_ontap_cluster_or_svm_mgmt_hostname, value: 10.61.188.118}
+    - {name: destination_ontap_cluster_or_svm_admin_acct_k8s_secret, value: ontap-admin-account}
+    - {name: destination_svm, value: svm0}
+    - name: ontap_api_verify_ssl_cert__yes_or_no
+      value: "yes"
+  serviceAccountName: pipeline-runner

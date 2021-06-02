@@ -1,0 +1,111 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: clone-volume-2-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2, pipelines.kubeflow.org/pipeline_compilation_time: '2021-06-02T02:13:06.154341',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "Template for cloning a
+      volume in Kubernetes.", "inputs": [{"default": "gold-datavol", "name": "source_volume_pvc_name",
+      "optional": true, "type": "String"}, {"default": "datavol-clone-1", "name":
+      "new_volume_pvc_name", "optional": true, "type": "String"}, {"default": "no",
+      "name": "clone_from_snapshot__yes_or_no", "optional": true, "type": "String"},
+      {"default": "n/a", "name": "source_volume_snapshot_name", "optional": true,
+      "type": "String"}], "name": "Clone Volume"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2}
+spec:
+  entrypoint: clone-volume-2
+  templates:
+  - name: clone-volume
+    container:
+      args: ['        python3 -m pip install ipython kubernetes pandas tabulate &&         git
+          clone https://github.com/NetApp/netapp-data-science-toolkit &&         mv
+          /netapp-data-science-toolkit/Kubernetes/ntap_dsutil_k8s.py / &&         echo
+          ''{{inputs.parameters.new_volume_pvc_name}}'' > /new_volume_pvc_name.txt
+          &&         /ntap_dsutil_k8s.py clone volume --namespace={{workflow.namespace}}
+          --new-pvc-name={{inputs.parameters.new_volume_pvc_name}} --source-pvc-name={{inputs.parameters.source_volume_pvc_name}}']
+      command: [/bin/bash, -c]
+      image: python:3
+    inputs:
+      parameters:
+      - {name: new_volume_pvc_name}
+      - {name: source_volume_pvc_name}
+    outputs:
+      artifacts:
+      - {name: clone-volume-new_volume_pvc_name, path: /new_volume_pvc_name.txt}
+    metadata:
+      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+  - name: clone-volume-2
+    inputs:
+      parameters:
+      - {name: clone_from_snapshot__yes_or_no}
+      - {name: new_volume_pvc_name}
+      - {name: source_volume_pvc_name}
+      - {name: source_volume_snapshot_name}
+    dag:
+      tasks:
+      - name: condition-1
+        template: condition-1
+        when: '"{{inputs.parameters.clone_from_snapshot__yes_or_no}}" == "yes"'
+        arguments:
+          parameters:
+          - {name: new_volume_pvc_name, value: '{{inputs.parameters.new_volume_pvc_name}}'}
+          - {name: source_volume_snapshot_name, value: '{{inputs.parameters.source_volume_snapshot_name}}'}
+      - name: condition-2
+        template: condition-2
+        when: '"{{inputs.parameters.clone_from_snapshot__yes_or_no}}" == "no"'
+        arguments:
+          parameters:
+          - {name: new_volume_pvc_name, value: '{{inputs.parameters.new_volume_pvc_name}}'}
+          - {name: source_volume_pvc_name, value: '{{inputs.parameters.source_volume_pvc_name}}'}
+  - name: clone-volume-from-snapshot
+    container:
+      args: ['        python3 -m pip install ipython kubernetes pandas tabulate &&         git
+          clone https://github.com/NetApp/netapp-data-science-toolkit &&         mv
+          /netapp-data-science-toolkit/Kubernetes/ntap_dsutil_k8s.py / &&         echo
+          ''{{inputs.parameters.new_volume_pvc_name}}'' > /new_volume_pvc_name.txt
+          &&         /ntap_dsutil_k8s.py clone volume --namespace={{workflow.namespace}}
+          --new-pvc-name={{inputs.parameters.new_volume_pvc_name}} --source-snapshot-name={{inputs.parameters.source_volume_snapshot_name}}']
+      command: [/bin/bash, -c]
+      image: python:3
+    inputs:
+      parameters:
+      - {name: new_volume_pvc_name}
+      - {name: source_volume_snapshot_name}
+    outputs:
+      artifacts:
+      - {name: clone-volume-from-snapshot-new_volume_pvc_name, path: /new_volume_pvc_name.txt}
+    metadata:
+      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.2, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+  - name: condition-1
+    inputs:
+      parameters:
+      - {name: new_volume_pvc_name}
+      - {name: source_volume_snapshot_name}
+    dag:
+      tasks:
+      - name: clone-volume-from-snapshot
+        template: clone-volume-from-snapshot
+        arguments:
+          parameters:
+          - {name: new_volume_pvc_name, value: '{{inputs.parameters.new_volume_pvc_name}}'}
+          - {name: source_volume_snapshot_name, value: '{{inputs.parameters.source_volume_snapshot_name}}'}
+  - name: condition-2
+    inputs:
+      parameters:
+      - {name: new_volume_pvc_name}
+      - {name: source_volume_pvc_name}
+    dag:
+      tasks:
+      - name: clone-volume
+        template: clone-volume
+        arguments:
+          parameters:
+          - {name: new_volume_pvc_name, value: '{{inputs.parameters.new_volume_pvc_name}}'}
+          - {name: source_volume_pvc_name, value: '{{inputs.parameters.source_volume_pvc_name}}'}
+  arguments:
+    parameters:
+    - {name: source_volume_pvc_name, value: gold-datavol}
+    - {name: new_volume_pvc_name, value: datavol-clone-1}
+    - name: clone_from_snapshot__yes_or_no
+      value: "no"
+    - {name: source_volume_snapshot_name, value: n/a}
+  serviceAccountName: pipeline-runner

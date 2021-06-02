@@ -1,0 +1,21 @@
+
+{
+
+ "version": 1,
+
+ "storageDriverName": "ontap-nas-flexgroup",
+
+ "backendName": "ontap-ai-flexgroups-iface1",
+
+ "managementLIF": "10.61.218.100",
+
+ "dataLIF": "192.168.11.11",
+
+ "svm": "ontapai_nfs",
+
+ "username": "admin",
+
+ "password": "ontapai"
+
+}
+

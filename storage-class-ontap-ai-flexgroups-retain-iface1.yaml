@@ -1,0 +1,19 @@
+
+apiVersion: storage.k8s.io/v1
+
+kind: StorageClass
+
+metadata:
+
+ name: ontap-ai-flexgroups-retain-iface1
+
+provisioner: netapp.io/trident
+
+parameters:
+
+ backendType: "ontap-nas-flexgroup"
+
+ storagePools: "ontap-ai-flexgroups-iface1:.*"
+
+reclaimPolicy: Retain
+
